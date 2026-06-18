@@ -13,6 +13,14 @@ describe CustomersPresenter do
   let(:presenter) { described_class.new(pundit_user:, customers: [purchase1, purchase2], pagination: nil, count: 2) }
 
   before do
+    MerchantAccount.gumroad(StripeChargeProcessor.charge_processor_id) ||
+      create(:merchant_account, user: nil, charge_processor_merchant_id: "acct_#{SecureRandom.hex(8)}")
+    MerchantAccount.gumroad(PaypalChargeProcessor.charge_processor_id) ||
+      create(:merchant_account_paypal, user: nil, charge_processor_merchant_id: "paypal_#{SecureRandom.hex(8)}")
+    MerchantAccount.gumroad(BraintreeChargeProcessor.charge_processor_id) ||
+      create(:merchant_account, user: nil, charge_processor_id: BraintreeChargeProcessor.charge_processor_id,
+                                charge_processor_merchant_id: "braintree_#{SecureRandom.hex(8)}")
+
     purchase1.create_purchasing_power_parity_info!(factor: 0.5)
     create(:gift, giftee_email: "giftee@gumroad.com", giftee_purchase: create(:purchase), gifter_purchase: purchase2)
     purchase2.reload
@@ -31,11 +39,13 @@ describe CustomersPresenter do
           products: [
             {
               id: product.external_id,
+              permalink: product.unique_permalink,
               name: "Product",
               variants: [],
             },
             {
               id: membership.external_id,
+              permalink: membership.unique_permalink,
               name: "Membership",
               variants: [
                 {
@@ -50,6 +60,7 @@ describe CustomersPresenter do
             },
             {
               id: coffee.external_id,
+              permalink: coffee.unique_permalink,
               name: "Coffee",
               variants: [
                 {

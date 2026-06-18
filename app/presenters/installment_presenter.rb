@@ -118,6 +118,7 @@ class InstallmentPresenter
         audience_types: user_presenter.audience_types,
         products: user_presenter.products_for_filter_box.map do |product|
           {
+            id: product.external_id,
             permalink: product.unique_permalink,
             name: product.name,
             archived: product.archived?,

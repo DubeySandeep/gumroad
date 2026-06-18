@@ -210,9 +210,44 @@ export const EmailForm = ({ context, installment }: EmailFormProps) => {
   const uid = React.useId();
   const currentSeller = assertDefined(useCurrentSeller());
   const hasAudience = context.audience_types.length > 0;
-  const [audienceType, setAudienceType] = React.useState<AudienceType>(
-    installment ? getAudienceType(installment.installment_type) : "everyone",
+
+  // Use browser APIs for URL params
+  const searchParams = React.useMemo(
+    () => new URLSearchParams(typeof window !== "undefined" ? window.location.search : ""),
+    [],
   );
+  const currentPathname = typeof window !== "undefined" ? window.location.pathname : "";
+  const pageUrl = usePage().url;
+
+  const ignoredFilters = React.useMemo(() => {
+    const ignoredParam = searchParams.get("ignored_filters");
+    return ignoredParam ? ignoredParam.split(",") : [];
+  }, [searchParams]);
+
+  const [audienceType, setAudienceType] = React.useState<AudienceType>(() => {
+    if (installment) return getAudienceType(installment.installment_type);
+    const audienceParam = searchParams.get("audience_type");
+    if (
+      audienceParam === "customers" ||
+      audienceParam === "followers" ||
+      audienceParam === "affiliates" ||
+      audienceParam === "everyone"
+    ) {
+      return audienceParam;
+    }
+    if (
+      searchParams.has("bought") ||
+      searchParams.has("not_bought") ||
+      searchParams.has("paid_more_than_cents") ||
+      searchParams.has("paid_less_than_cents") ||
+      searchParams.has("created_after") ||
+      searchParams.has("created_before") ||
+      searchParams.has("bought_from")
+    ) {
+      return "customers";
+    }
+    return "everyone";
+  });
   const [channel, setChannel] = React.useState<{ email: boolean; profile: boolean }>({
     email: installment?.send_emails ?? hasAudience,
     profile: installment?.shown_on_profile ?? true,
@@ -227,10 +262,6 @@ export const EmailForm = ({ context, installment }: EmailFormProps) => {
     loading: boolean;
   }>({ count: 0, total: 0, loading: false });
   const activeRecipientCountRequest = React.useRef<{ cancel: () => void } | null>(null);
-  // Use browser APIs for URL params
-  const searchParams = new URLSearchParams(window.location.search);
-  const currentPathname = window.location.pathname;
-  const pageUrl = usePage().url;
 
   React.useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -243,25 +274,48 @@ export const EmailForm = ({ context, installment }: EmailFormProps) => {
     }
   }, [pageUrl, installment?.full_url]);
   const [bought, setBought] = React.useState<string[]>(() => {
-    if (!installment) return [];
-    return installment.installment_type === "variant" && installment.variant_external_id
-      ? [installment.variant_external_id]
-      : installment.installment_type === "product" && installment.unique_permalink
-        ? [installment.unique_permalink]
-        : [...(installment.bought_products ?? []), ...(installment.bought_variants ?? [])];
+    if (installment) {
+      return installment.installment_type === "variant" && installment.variant_external_id
+        ? [installment.variant_external_id]
+        : installment.installment_type === "product" && installment.unique_permalink
+          ? [installment.unique_permalink]
+          : [...(installment.bought_products ?? []), ...(installment.bought_variants ?? [])];
+    }
+    const boughtParam = searchParams.get("bought");
+    return boughtParam ? boughtParam.split(",") : [];
   });
-  const [notBought, setNotBought] = React.useState<string[]>(
-    installment?.not_bought_products ?? installment?.not_bought_variants ?? [],
-  );
-  const [paidMoreThanCents, setPaidMoreThanCents] = React.useState<number | null>(
-    installment?.paid_more_than_cents ?? null,
-  );
-  const [paidLessThanCents, setPaidLessThanCents] = React.useState<number | null>(
-    installment?.paid_less_than_cents ?? null,
-  );
-  const [afterDate, setAfterDate] = React.useState(installment?.created_after ?? "");
-  const [beforeDate, setBeforeDate] = React.useState(installment?.created_before ?? "");
-  const [fromCountry, setFromCountry] = React.useState(installment?.bought_from ?? "");
+  const [notBought, setNotBought] = React.useState<string[]>(() => {
+    if (installment) {
+      return installment.not_bought_products ?? installment.not_bought_variants ?? [];
+    }
+    const notBoughtParam = searchParams.get("not_bought");
+    return notBoughtParam ? notBoughtParam.split(",") : [];
+  });
+  const [paidMoreThanCents, setPaidMoreThanCents] = React.useState<number | null>(() => {
+    if (installment) return installment.paid_more_than_cents ?? null;
+    const centsParam = searchParams.get("paid_more_than_cents");
+    return centsParam ? Number.parseInt(centsParam, 10) : null;
+  });
+  const [paidLessThanCents, setPaidLessThanCents] = React.useState<number | null>(() => {
+    if (installment) return installment.paid_less_than_cents ?? null;
+    const centsParam = searchParams.get("paid_less_than_cents");
+    return centsParam ? Number.parseInt(centsParam, 10) : null;
+  });
+  const [afterDate, setAfterDate] = React.useState(() => {
+    if (installment) return installment.created_after ?? "";
+    const param = searchParams.get("created_after");
+    return param ?? "";
+  });
+  const [beforeDate, setBeforeDate] = React.useState(() => {
+    if (installment) return installment.created_before ?? "";
+    const param = searchParams.get("created_before");
+    return param ?? "";
+  });
+  const [fromCountry, setFromCountry] = React.useState(() => {
+    if (installment) return installment.bought_from ?? "";
+    const param = searchParams.get("bought_from");
+    return param ?? "";
+  });
   const [allowComments, setAllowComments] = React.useState(
     installment?.allow_comments ?? context.allow_comments_by_default,
   );
@@ -811,6 +865,11 @@ export const EmailForm = ({ context, installment }: EmailFormProps) => {
       />
       <section className="space-y-4 p-4 md:p-8">
         {currentSeller.isNameInvalidForEmailDelivery && channel.email ? <InvalidNameForEmailDeliveryWarning /> : null}
+        {ignoredFilters.length > 0 ? (
+          <Alert variant="warning" role="alert">
+            We couldn't apply the following filters: {ignoredFilters.join(", ")}.
+          </Alert>
+        ) : null}
 
         <div className="grid grid-cols-1 items-start gap-x-16 gap-y-8 lg:grid-cols-[var(--grid-cols-sidebar)]">
           <Card>

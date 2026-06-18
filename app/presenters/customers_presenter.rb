@@ -20,6 +20,7 @@ class CustomersPresenter
       products: UserPresenter.new(user: pundit_user.seller).products_for_filter_box.map do |product|
         {
           id: product.external_id,
+          permalink: product.unique_permalink,
           name: product.name,
           variants: (product.is_physical? ? product.skus_alive_not_default : product.variant_categories_alive.first&.alive_variants || []).map do |variant|
             { id: variant.external_id, name: variant.name || "" }

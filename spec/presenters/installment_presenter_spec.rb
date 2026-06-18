@@ -26,6 +26,7 @@ describe InstallmentPresenter do
       expect(props[:context][:products]).to match_array(
         [
           {
+            id: product1.external_id,
             permalink: product1.unique_permalink,
             name: "Product 1",
             archived: false,
@@ -41,6 +42,7 @@ describe InstallmentPresenter do
             ]
           },
           {
+            id: membership.external_id,
             permalink: membership.unique_permalink,
             name: "Membership product",
             archived: false,
@@ -52,6 +54,7 @@ describe InstallmentPresenter do
             ]
           },
           {
+            id: physical_product.external_id,
             permalink: physical_product.unique_permalink,
             name: "Physical product",
             archived: false,
@@ -120,6 +123,7 @@ describe InstallmentPresenter do
       expect(props[:context][:products]).to match_array(
         [
           {
+            id: product.external_id,
             permalink: product.unique_permalink,
             name: "Product 1",
             archived: false,

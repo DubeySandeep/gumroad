@@ -1,4 +1,4 @@
-import { ArrowInDownSquareHalf, MenuFilter, Truck } from "@boxicons/react";
+import { ArrowInDownSquareHalf, MenuFilter, Truck, Envelope } from "@boxicons/react";
 import { router, useRemember } from "@inertiajs/react";
 import cx from "classnames";
 import { lightFormat, subMonths } from "date-fns";
@@ -6,10 +6,12 @@ import { format } from "date-fns-tz";
 import * as React from "react";
 
 import { Customer, Query, SortKey, getPagedCustomers } from "$app/data/customers";
+import { convertSalesFiltersToEmailParams, getUnsupportedFilters } from "$app/utils/audience";
 import { CurrencyCode, formatPriceCentsWithCurrencySymbol } from "$app/utils/currency";
 import { asyncVoid } from "$app/utils/promise";
 import { RecurrenceId, recurrenceLabels } from "$app/utils/recurringPricing";
 import { AbortError, assertResponseError } from "$app/utils/request";
+import { writeQueryParams } from "$app/utils/url";
 
 import { Button, NavigationButton } from "$app/components/Button";
 import { useCurrentSeller } from "$app/components/CurrentSeller";
@@ -22,6 +24,7 @@ import { PriceInput } from "$app/components/PriceInput";
 import { Search } from "$app/components/Search";
 import { Select } from "$app/components/Select";
 import { showAlert } from "$app/components/server-components/Alert";
+import { Alert } from "$app/components/ui/Alert";
 import { Card, CardContent } from "$app/components/ui/Card";
 import { Fieldset, FieldsetDescription, FieldsetTitle } from "$app/components/ui/Fieldset";
 import { Input } from "$app/components/ui/Input";
@@ -40,7 +43,7 @@ import { WithTooltip } from "$app/components/WithTooltip";
 
 import placeholder from "$assets/images/placeholders/customers.png";
 
-type Product = { id: string; name: string; variants: { id: string; name: string }[] };
+type Product = { id: string; name: string; variants: { id: string; name: string }[]; permalink?: string };
 
 export type CustomerPageProps = {
   customers: Customer[];
@@ -169,6 +172,7 @@ const CustomersPage = ({
   const [from, setFrom] = React.useState(subMonths(new Date(), 1));
   const [to, setTo] = React.useState(new Date());
   const [exportPopoverOpen, setExportPopoverOpen] = React.useState(false);
+  const [emailPopoverOpen, setEmailPopoverOpen] = React.useState(false);
 
   const exportNames = React.useMemo(
     () =>
@@ -187,6 +191,41 @@ const CustomersPage = ({
         : null,
     [includedItems, products],
   );
+
+  const [unsupportedFilters, setUnsupportedFilters] = React.useState<string[]>([]);
+
+  const handleOpenEmailPopover = (open: boolean) => {
+    setEmailPopoverOpen(open);
+    if (open) {
+      setUnsupportedFilters(
+        getUnsupportedFilters({
+          activeCustomersOnly,
+          minimumLicenseUses,
+          searchQuery,
+        }),
+      );
+    }
+  };
+
+  const handleSendEmail = () => {
+    const { queryParams } = convertSalesFiltersToEmailParams(
+      {
+        includedItems,
+        excludedItems,
+        minimumAmount,
+        maximumAmount,
+        createdAfter: createdAfter ? lightFormat(createdAfter, "yyyy-MM-dd") : null,
+        createdBefore: createdBefore ? lightFormat(createdBefore, "yyyy-MM-dd") : null,
+        country,
+      },
+      products,
+      unsupportedFilters,
+    );
+
+    const url = new URL(Routes.new_email_path(), window.location.origin);
+    writeQueryParams(url, queryParams);
+    router.visit(url.pathname + url.search);
+  };
 
   if (!currentSeller) return null;
   const timeZoneAbbreviation = format(new Date(), "z", { timeZone: currentSeller.timeZone.name });
@@ -355,6 +394,42 @@ const CustomersPage = ({
                 </Card>
               </PopoverContent>
             </Popover>
+
+            <Popover open={emailPopoverOpen} onOpenChange={handleOpenEmailPopover}>
+              <PopoverAnchor>
+                <WithTooltip tip="Draft email">
+                  <PopoverTrigger aria-label="Draft email" asChild>
+                    <Button size="icon">
+                      <Envelope className="size-5" />
+                    </Button>
+                  </PopoverTrigger>
+                </WithTooltip>
+              </PopoverAnchor>
+              <PopoverContent className="w-96">
+                <div className="flex flex-col gap-4">
+                  <h3>Draft email to customers</h3>
+                  <div>
+                    {exportNames
+                      ? `This will redirect you to draft an email to customers of '${exportNames}'.`
+                      : "This will redirect you to draft an email to the customers matching the current filters."}
+                  </div>
+                  {unsupportedFilters.length > 0 && (
+                    <Alert variant="warning" role="alert">
+                      The following filters are not supported for emails and will be ignored:
+                      <ul className="mt-2 list-disc pl-4">
+                        {unsupportedFilters.map((f) => (
+                          <li key={f}>{f}</li>
+                        ))}
+                      </ul>
+                    </Alert>
+                  )}
+                  <Button color="primary" onClick={handleSendEmail}>
+                    Draft email
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+
             <Popover open={exportPopoverOpen} onOpenChange={setExportPopoverOpen}>
               <PopoverAnchor>
                 <PopoverTrigger asChild>
