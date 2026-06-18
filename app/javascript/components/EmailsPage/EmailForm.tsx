@@ -219,11 +219,6 @@ export const EmailForm = ({ context, installment }: EmailFormProps) => {
   const currentPathname = typeof window !== "undefined" ? window.location.pathname : "";
   const pageUrl = usePage().url;
 
-  const ignoredFilters = React.useMemo(() => {
-    const ignoredParam = searchParams.get("ignored_filters");
-    return ignoredParam ? ignoredParam.split(",") : [];
-  }, [searchParams]);
-
   const [audienceType, setAudienceType] = React.useState<AudienceType>(() => {
     if (installment) return getAudienceType(installment.installment_type);
     const audienceParam = searchParams.get("audience_type");
@@ -865,11 +860,6 @@ export const EmailForm = ({ context, installment }: EmailFormProps) => {
       />
       <section className="space-y-4 p-4 md:p-8">
         {currentSeller.isNameInvalidForEmailDelivery && channel.email ? <InvalidNameForEmailDeliveryWarning /> : null}
-        {ignoredFilters.length > 0 ? (
-          <Alert variant="warning" role="alert">
-            We couldn't apply the following filters: {ignoredFilters.join(", ")}.
-          </Alert>
-        ) : null}
 
         <div className="grid grid-cols-1 items-start gap-x-16 gap-y-8 lg:grid-cols-[var(--grid-cols-sidebar)]">
           <Card>

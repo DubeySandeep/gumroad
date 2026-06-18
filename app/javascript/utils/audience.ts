@@ -25,7 +25,6 @@ export interface EmailParamsResult {
 export function convertSalesFiltersToEmailParams(
   filters: SalesFilters,
   products: ProductWithVariants[],
-  ignoredFilters: string[],
 ): EmailParamsResult {
   const boughtPermalinksOrIds: string[] = [];
   filters.includedItems.forEach((item) => {
@@ -56,7 +55,6 @@ export function convertSalesFiltersToEmailParams(
     created_after: filters.createdAfter,
     created_before: filters.createdBefore,
     bought_from: filters.country,
-    ignored_filters: ignoredFilters.length > 0 ? ignoredFilters.join(",") : null,
   };
 
   return { queryParams };

@@ -219,7 +219,6 @@ const CustomersPage = ({
         country,
       },
       products,
-      unsupportedFilters,
     );
 
     const url = new URL(Routes.new_email_path(), window.location.origin);
